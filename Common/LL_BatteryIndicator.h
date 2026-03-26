@@ -5,21 +5,12 @@
 #ifndef _LL_BATTERYINDICATOR_H
 #define _LL_BATTERYINDICATOR_H
 
+extern T_LL_Thread__var thread_var__battery_indicator__main;
+extern T_LL_Thread__var thread_var__battery_indicator__sub;
 
+extern const LL_Thread__step_func steps_battery_indicator_when_power_on[];
+extern const LL_Thread__step_func steps_battery_indicator_when_running[];
 
-/*******************************************************************************
- @brief        : battery indicator.
- @details      : none
- @param[in    ]: none
- @param[   out]: none
- @param[in,out]: none
- @retval       : none
-*******************************************************************************/
-void            LL_BatteryIndicator__Start(void);
-void            LL_BatteryIndicator__Stop(void);
-unsigned long   LL_BatteryIndicator__isStopped(void);
-void            LL_BatteryIndicator__Mainloop(void);
-
-
-
+    
+    
 #endif

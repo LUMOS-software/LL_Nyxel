@@ -216,19 +216,36 @@ static inline void LL_Helmet_State_PcbTestingMode(void)
 
 bool glPowerOnAnimationPlayOff;
 unsigned int glPowerOnDisplayNum;
+static unsigned long buzzer_on(  void) { LL_LED_ON(  E_LL_PWM_BUZZER); return LL_Thread__step_RETURN__Done; }
+static unsigned long buzzer_off( void) { LL_LED_OFF( E_LL_PWM_BUZZER); return LL_Thread__step_RETURN__Done; }
+LL_Thread__step_func thread_steps__beep[] = {
+    buzzer_on, 
+    buzzer_on,// 1 buzzer_on is quite short, while 2 buzzer_on is ok, still don't know why 
+    LL_Thread__delay_ms(125),
+    buzzer_off,
+    LL_Thread__delay_ms(125),
+    LL_Thread__step__END_OR_LOOP_THIS_THREAD
+};
+T_LL_Thread__var thread_var__beep;
 void LL_Helmet_ChangeStateTo_BeepBeforeON(void)
 {
     E_Ws2812_Animation_Type AnimationPowerOnLevel;
     LL_GPIO_OutputWrite(0, LL_PIN_LED_POWER_ENABLE, LL_PIN_Y__LED_POWER_ENABLE);
     gtSysState.eOnOFF = SYS_BEEP_BEFORE_ON;
-    sgulBeepCnt = gulTimerCnt1ms; 
+
     uint8_t PowerOnBatteryLevel = LL_Battery_Level();
     if(PowerOnBatteryLevel > 80){ glPowerOnDisplayNum = 28; AnimationPowerOnLevel = LED_ANIMATION_POWERON_LEVEL_4;}
     else if(PowerOnBatteryLevel > 60){ glPowerOnDisplayNum = 21; AnimationPowerOnLevel = LED_ANIMATION_POWERON_LEVEL_3;}
     else if(PowerOnBatteryLevel > 40){ glPowerOnDisplayNum = 18; AnimationPowerOnLevel = LED_ANIMATION_POWERON_LEVEL_2;}
     else{ glPowerOnDisplayNum = 12; AnimationPowerOnLevel = LED_ANIMATION_POWERON_LEVEL_1;}
         
-    
+     {//sgulBeepCnt = gulTimerCnt1ms;
+        if(E_BEEP_MODE_OF_POWER_ON_OFF__BEEP == gtPara.beep_mode_of_power_on_off) { // if user setting is "beep when power on"
+            LL_Thread__start(&thread_var__beep, thread_steps__beep, 1);
+        } else { // else, user setting is "no beep when power on"
+            //LL_Thread__stop(&thread_var__beep); // can save 12 bytes by deleting it
+        }
+    }   
     //sgulFrontLightFadeCnt = gulTimerCnt1ms;
     // LED on for both battery-level-measuring and helmet-on-indicator:
     if(1 != gtPara.ulNeedCharge) {      
@@ -250,7 +267,7 @@ void LL_Helmet_ChangeStateTo_BeepBeforeON(void)
                 break;
         }
     }
-    LL_BatteryIndicator__Start();//LL_BatteryIndicatorOfPowerOn_Start();
+    LL_Thread__start(&thread_var__battery_indicator__main, steps_battery_indicator_when_power_on, 0);//LL_BatteryIndicatorOfPowerOn_Start();
     
     sgulGeneralCnt = gulTimerCnt1ms;    
   
@@ -260,34 +277,36 @@ static inline void LL_Helmet_State_BeepBeforeON(void)
 {
     T_LL_KEY_EVT tKeyEvt;
     
-    if(       125 > LL_Timer_Elapsed_ms(sgulBeepCnt) ) { if(E_BEEP_MODE_OF_POWER_ON_OFF__BEEP == gtPara.beep_mode_of_power_on_off) { LL_LED_ON(  E_LL_PWM_BUZZER ); } }
-    else if(  250 > LL_Timer_Elapsed_ms(sgulBeepCnt) ) { LL_LED_OFF( E_LL_PWM_BUZZER ); }
-    else if(  375 > LL_Timer_Elapsed_ms(sgulBeepCnt) ) { if(E_BEEP_MODE_OF_POWER_ON_OFF__BEEP == gtPara.beep_mode_of_power_on_off) { LL_LED_ON(  E_LL_PWM_BUZZER ); } }
-    else if(  500 > LL_Timer_Elapsed_ms(sgulBeepCnt) ) { LL_LED_OFF( E_LL_PWM_BUZZER ); }
-    else                                               { 
-//      if(LL_BatteryIndicatorOfPowerOn_IsFinished()) {
-        if(true) {
-            if(glPowerOnAnimationPlayOff == true){    
-                if(0 == sgulEnterPairingModeIfLongPress) {
-                    LL_Helmet_ChangeStateTo_ON(); 
-                } else {
-                    if( LL_Key_EvtFetch(&tKeyEvt) && (LL_KEY_NUM_ONOFF == tKeyEvt.N) && (0 == tKeyEvt.evt) ) {
-                        LL_Helmet_ChangeStateTo_ON();                     
-                    } else {
-                        if(2000 < LL_Timer_Elapsed_ms(sgulGeneralCnt) ) { LL_Key_IgnoreNextRelease(LL_KEY_NUM_ONOFF); 
-                            #if 1 // Enter pairing-mode instead of power-off, if a Long-Press since power-on.
-                            if(0 == sgulEnterPairingModeIfLongPress) {                            
-                                LL_Helmet_ChangeStateTo_ON(); 
-                            } else { sgulEnterPairingModeIfLongPress = 0;
-                                LL_Helmet_ChangeStateTo_Pairing();
-                            }
-                            #endif
-                        }                    
-                    }
+    if(LL_Thread__is_stopped(&thread_var__beep)) {
+        if(LL_Thread__is_stopped(&thread_var__battery_indicator__main)) {
+					if(1 == gtPara.ulNeedCharge) { // if need charge
+                LL_LEDs_OFF();
+                LL_Helmet_ChangeStateTo_OFF();
+            } else {
+								if(true) {
+										if(glPowerOnAnimationPlayOff == true){    
+												if(0 == sgulEnterPairingModeIfLongPress) {
+														LL_Helmet_ChangeStateTo_ON(); 
+												} else {
+														if( LL_Key_EvtFetch(&tKeyEvt) && (LL_KEY_NUM_ONOFF == tKeyEvt.N) && (0 == tKeyEvt.evt) ) {
+																LL_Helmet_ChangeStateTo_ON();                     
+														} else {
+																if(2000 < LL_Timer_Elapsed_ms(sgulGeneralCnt) ) { LL_Key_IgnoreNextRelease(LL_KEY_NUM_ONOFF); 
+																		#if 1 // Enter pairing-mode instead of power-off, if a Long-Press since power-on.
+																		if(0 == sgulEnterPairingModeIfLongPress) {                            
+																				LL_Helmet_ChangeStateTo_ON(); 
+																		} else { sgulEnterPairingModeIfLongPress = 0;
+																				LL_Helmet_ChangeStateTo_Pairing();
+																		}
+																		#endif
+																}                    
+														}
 
-                }
-            }
-       }
+												}
+										}
+							 }
+						}
+					}
     }
 	//geBroadcastState = E_BROADCAST_STATE__NEED_PTX_OnlyClock; // sync kzc
 }
@@ -299,10 +318,9 @@ void LL_Helmet_ChangeStateTo_ON(void)
     gtSysState.eModeOfWarningLight    = gtPara.eModeOfWarningLight;
     LL_HelmetActionWhenStateChanged();
 
-//    LL_BLE_SetAdManu(0);
-//    battery_level_update();
-//    //ble_advertising_start(BLE_ADV_MODE_FAST); timeslot_sd_start();
-    //LL_BLE_Broadcaster__start(thread__LL_BLE_Broadcaster__Normal_Mode_Power_ON);    
+    LL_Thread__start(&thread_var__battery_indicator__main, steps_battery_indicator_when_running, 0);//LL_BatteryIndicatorOfRuntime_Start();
+
+    LL_Thread__start(&thread_var__BLE_Broadcaster__main, thread__LL_BLE_Broadcaster__Normal_Mode_Power_ON, 0); LL_Thread__stop(&thread_var__BLE_Broadcaster__sub);//LL_BLE_Broadcaster__start(thread__LL_BLE_Broadcaster__Normal_Mode_Power_ON);     
 
     sgulGeneralStep = 0;
     sgulGeneralCnt = gulTimerCnt1ms;     
@@ -358,12 +376,7 @@ static inline void LL_Helmet_State_ON(void)
                 if(DOUBLE_CLICK_TIMEOUT > LL_Timer_Elapsed_ms(sgulTimerCntPrevRelease)) { // if 2nd release in 500ms, which means "double click"
                     needSwitchMode = 0; // cancel the "mode switching when timeout for the 2nd click of double click"
                     {
-//                        if(gtPara.ePatternOfFrontLight[gtPara.eModeOfWarningLight] <= LED_ANIMATION_FASTFLASH_MODE){ //common flash pattern
-//                            geBroadcastState = E_BROADCAST_STATE__NEED_PTX; // sync
-//                        }else{
-//                            geBroadcastState = E_BROADCAST_STATE__NEED_PTX_OnlyClock; // sync clock
-//                        }
-                        //LL_BLE_Broadcaster__start(thread__LL_BLE_Broadcaster__Normal_Mode_Sync_FlashingPattern);
+                        LL_Thread__start(&thread_var__BLE_Broadcaster__main, thread__LL_BLE_Broadcaster__Normal_Mode_Sync_FlashingPattern, 0); LL_Thread__stop(&thread_var__BLE_Broadcaster__sub);//LL_BLE_Broadcaster__start(thread__LL_BLE_Broadcaster__Normal_Mode_Sync_FlashingPattern);
                     }
                     sgulGeneralStep = 0; // back to step 0
                 } else { // else, a single click, or the 1st click of a "double click"
@@ -374,7 +387,7 @@ static inline void LL_Helmet_State_ON(void)
             } else { // else, not released yet
                 // if long pressed: OFF.
                 if(2000 < LL_Timer_Elapsed_ms(sgulGeneralCnt) ) { LL_Key_IgnoreNextRelease(LL_KEY_NUM_ONOFF); 
-                    //LL_BLE_Broadcaster__start(thread__LL_BLE_Broadcaster__Normal_Mode_Power_OFF);
+                    LL_Thread__start(&thread_var__BLE_Broadcaster__main, thread__LL_BLE_Broadcaster__Normal_Mode_Power_OFF, 0); LL_Thread__stop(&thread_var__BLE_Broadcaster__sub);//LL_BLE_Broadcaster__start(thread__LL_BLE_Broadcaster__Normal_Mode_Power_OFF);
                     if(1 == getPara(syncPowerOff)) {
                                 geBroadcastState = E_BROADCAST_STATE__NEED_PTX_PowerOffMessage; // sync "power off"
                     }
@@ -398,22 +411,17 @@ static inline void LL_Helmet_State_ON(void)
             
             LL_Helmet_ChangeStateTo_NextMode();        
             TxCurrentFlashModeToApp();//TxCurrentFlashModeToApp();
-            //LL_BLE_Broadcaster__start(thread__LL_BLE_Broadcaster__Normal_Mode_TurningBraking);            
-            sgulBeepCnt = gulTimerCnt1ms;     
-            needSwitchMode = 2;}//need buzzer 
+						LL_Thread__start(&thread_var__BLE_Broadcaster__main, thread__LL_BLE_Broadcaster__Normal_Mode_TurningBraking, 0); LL_Thread__stop(&thread_var__BLE_Broadcaster__sub);//LL_BLE_Broadcaster__start(thread__LL_BLE_Broadcaster__Normal_Mode_TurningBraking);
+						needSwitchMode = 2;
+				}
     }else if(2 == needSwitchMode){
-        if(       50 > LL_Timer_Elapsed_ms(sgulBeepCnt) ) { LL_LED_ON(  E_LL_PWM_BUZZER ); }
-        else if(  100 > LL_Timer_Elapsed_ms(sgulBeepCnt) ) { LL_LED_OFF( E_LL_PWM_BUZZER ); needSwitchMode = 0;}
+//        if(       50 > LL_Timer_Elapsed_ms(sgulBeepCnt) ) { LL_LED_ON(  E_LL_PWM_BUZZER ); }
+//        else if(  100 > LL_Timer_Elapsed_ms(sgulBeepCnt) ) { LL_LED_OFF( E_LL_PWM_BUZZER ); needSwitchMode = 0;}  //need buzzer!!
     }
 
     if(glAdapterBoardConnState == ADAPTEBOARD_DISCONNECT){ LL_Helmet_ChangeStateTo_BeepBeforeOFF(); }
 }
 
-//void LL_Helmet_ChangeStateTo_BeepBeforePairing(void)
-//{
-//    gtSysState.eOnOFF = SYS_BEEP_BEFORE_PAIRING;
-//    sgulBeepCnt = gulTimerCnt1ms;    
-//}
 
 void LL_Helmet_ChangeStateTo_Pairing(void)
 {
@@ -431,6 +439,9 @@ void LL_Helmet_ChangeStateTo_Pairing(void)
     LL_Drv_Ws2812_SetRearAnimation(LED_ANIMATION_BREATHING_MODE); 
 
     //LL_BLE_Broadcaster__start(thread__LL_BLE_Broadcaster__Pairing_APP);    
+    LL_Thread__start(&thread_var__battery_indicator__main, steps_battery_indicator_when_running, 0);//LL_BatteryIndicatorOfRuntime_Start();
+    
+    LL_Thread__start(&thread_var__BLE_Broadcaster__main, thread__LL_BLE_Broadcaster__Pairing_APP, LL_Thread__LOOP_FOREVER); LL_Thread__stop(&thread_var__BLE_Broadcaster__sub);//LL_BLE_Broadcaster__start(thread__LL_BLE_Broadcaster__Pairing_APP);    
     
     sgulGeneralStep = 0;
     sgulGeneralCnt = gulTimerCnt1ms;    
@@ -494,9 +505,12 @@ static inline void LL_Helmet_State_Pairing(void)
 void LL_Helmet_ChangeStateTo_BeepBeforeOFF(void)
 {
     gtSysState.eOnOFF = SYS_BEEP_BEFORE_OFF;
-    sgulBeepCnt = gulTimerCnt1ms; //LL_LED_ON(E_LL_PWM_BUZZER);
-    //LL_LEDs_PowerOff_BeforeSleep();
-//    LL_BatteryIndicatorOfPowerOn_Start(); // also need Low Battery Indicator  
+    {//sgulBeepCnt = gulTimerCnt1ms; //LL_LED_ON(E_LL_LED_BUZZER);
+        if(E_BEEP_MODE_OF_POWER_ON_OFF__BEEP == gtPara.beep_mode_of_power_on_off) { // if user setting is "beep when power on"
+            LL_Thread__start(&thread_var__beep, thread_steps__beep, 0);
+        } else { // else, user setting is "no beep when power on"
+        }        
+    }
     LL_BeepForTurning__OFF();
 }
 static inline void LL_Helmet_State_BeepBeforeOFF(void)
@@ -506,14 +520,8 @@ static inline void LL_Helmet_State_BeepBeforeOFF(void)
     LL_Drv_Ws2812_SetFrontAnimation(LED_ANIMATION_POWEROFF);
     LL_Drv_Ws2812_SetRearAnimation(LED_ANIMATION_POWEROFF);    
     
-    if(       125 > LL_Timer_Elapsed_ms(sgulBeepCnt) ) { if(E_BEEP_MODE_OF_POWER_ON_OFF__BEEP == gtPara.beep_mode_of_power_on_off) { LL_LED_ON(  E_LL_PWM_BUZZER ); } }
-    else if(  250 > LL_Timer_Elapsed_ms(sgulBeepCnt) ) { LL_LED_OFF( E_LL_PWM_BUZZER ); }
-    else { 
-//      if(LL_BatteryIndicatorOfPowerOn_IsFinished()) { // if the Low Battery Indicator done 
-        if(true) {
-            //LL_LEDs_PowerOff_BeforeSleep();             
-            LL_Helmet_ChangeStateTo_OFF(); 
-        } else { /* else, need wait for the Low Battery Indicator done */ }
+    if(LL_Thread__is_stopped(&thread_var__beep)) {
+				LL_Helmet_ChangeStateTo_OFF(); 
     }
 }
 
@@ -822,7 +830,11 @@ void LL_Helmet_Mainloop(void)
     }
     
     //LL_BLE_Broadcaster();
+		LL_Thread(&thread_var__battery_indicator__main);
+    LL_Thread(&thread_var__battery_indicator__sub);
     
+    LL_Thread(&thread_var__beep);
+		
     LL_BeepForTurning();
     
     LL_Helmet_TurnOffBrakeLightAuto();   // turn off the brake LED after 2s:    

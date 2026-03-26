@@ -6,126 +6,142 @@
 #include "LL_Common.h"
 
 
-typedef enum {
-    E_STEP__BATTERY_INDICATOR__OFF = 0,
-    // indicator when power on
-    E_STEP__BATTERY_INDICATOR__PWR_ON__CHK_BATT,    
-        // case battery enough
-        E_STEP__BATTERY_INDICATOR__PWR_ON__START_UP,   
-        E_STEP__BATTERY_INDICATOR__PWR_ON__FLASH_BATT,   
-        // case battery need charge
-        E_STEP__BATTERY_INDICATOR__PWR_ON__ALERT_BATT,  
-    // indicator when runtime
-    E_STEP__BATTERY_INDICATOR__RUNTIME__CHK_BATT,   
-        // case battery need charge
-        E_STEP__BATTERY_INDICATOR__RUNTIME__ALERT_BATT, 
-} E_STEP__BATTERY_INDICATOR;
-static E_STEP__BATTERY_INDICATOR step= E_STEP__BATTERY_INDICATOR__OFF;
 
-static unsigned long delay_cnt = 0;
-static unsigned long rep_cnt   = 0;
-
-
-
-void LL_BatteryIndicator__Start(void) {
-    step = E_STEP__BATTERY_INDICATOR__PWR_ON__CHK_BATT;
+T_LL_Thread__var thread_var__battery_indicator__sub;
+//
+// step functions
+//
+static unsigned long red_on(  void) {
+    #if defined(LL_Charging_Lights_Controlled_By_Software)
+        LL_LED_ON(E_LL_LED_CHARGE_RED);
+    #elif defined(LL_Charging_Lights_Controlled_By_Hardware)
+        //LL_LED_ON(E_LL_LED_PCB_Red);
+    #endif
+    return LL_Thread__step_RETURN__Done;
 }
-
-
-void LL_BatteryIndicator__Stop(void) {
-    step = E_STEP__BATTERY_INDICATOR__OFF;
+static unsigned long red_off( void) {
+    #if defined(LL_Charging_Lights_Controlled_By_Software)
+        LL_LED_OFF(E_LL_LED_CHARGE_RED);
+    #elif defined(LL_Charging_Lights_Controlled_By_Hardware)
+        //LL_LED_OFF(E_LL_LED_PCB_Red);
+    #endif
+    return LL_Thread__step_RETURN__Done;
 }
+//
+static unsigned long green_on(  void) { 
+    #if defined(LL_Charging_Lights_Controlled_By_Software)
+        LL_LED_ON(E_LL_LED_CHARGE_GREEN);
+    #endif
+    return LL_Thread__step_RETURN__Done;
+}
+static unsigned long green_off( void) { 
+    #if defined(LL_Charging_Lights_Controlled_By_Software)
+        LL_LED_OFF(E_LL_LED_CHARGE_GREEN);
+    #endif
+    return LL_Thread__step_RETURN__Done;
+}
+//
+static E_LL_LED all_leds[5] = { 
+    #if defined(LL_Charging_Lights_Controlled_By_Software)
+        E_LL_LED_CHARGE_RED,
+    #elif defined(LL_Charging_Lights_Controlled_By_Hardware)
+        //E_LL_LED_PCB_Red,
+    #endif
+    E_LL_LED_FRONT,// E_LL_LED_BACK_L, E_LL_LED_BACK_R, E_LL_LED_BUZZER 
+	};
+static unsigned long all_on(  void) { for(int i = 0; i < 5; i++) { LL_LED_ON(  all_leds[i]); } return LL_Thread__step_RETURN__Done; }
+static unsigned long all_off( void) { for(int i = 0; i < 5; i++) { LL_LED_OFF( all_leds[i]); } return LL_Thread__step_RETURN__Done; }
+//
+// threads
+const LL_Thread__step_func steps_green_flash[] = {
+    green_on,
+    LL_Thread__delay_ms(500),
+    green_off,
+    LL_Thread__delay_ms(500),
+    LL_Thread__step__END_OR_LOOP_THIS_THREAD
+};
+const LL_Thread__step_func steps_red_flash[] = {
+    red_on,
+    LL_Thread__delay_ms(500),
+    red_off,
+    LL_Thread__delay_ms(500),
+    LL_Thread__step__END_OR_LOOP_THIS_THREAD
+};
+const LL_Thread__step_func steps_red_alert[] = {
+    red_on,
+    LL_Thread__delay_ms(300),
+    red_off,
+    LL_Thread__delay_ms(200),
+    LL_Thread__step__END_OR_LOOP_THIS_THREAD
+};
+const LL_Thread__step_func steps_all_alert[] = {
+    all_on,
+    LL_Thread__delay_ms(140),
+    all_off,
+    LL_Thread__delay_ms(60),
+    LL_Thread__step__END_OR_LOOP_THIS_THREAD
+};
 
 
-void LL_BatteryIndicator__ShowInPanel(unsigned long ulBatteryLevel) {
-    if(ulBatteryLevel < 30) { 
-        //LL_LED_Panel_SingleFrameBufInit(); LL_LED_Panel_SingleFrameBufSetNumber(ulBatteryLevel, LL_LED_Panel_GetColorIdxOfRED()); LL_LED_Panel_SingleFrameBufDisplay();
-    } else if(ulBatteryLevel < 70) { 
-        //LL_LED_Panel_SingleFrameBufInit(); LL_LED_Panel_SingleFrameBufSetNumber(ulBatteryLevel, LL_LED_Panel_GetColorIdxOfYELLOW()); LL_LED_Panel_SingleFrameBufDisplay();
-    } else if(ulBatteryLevel < 100) { 
-        //LL_LED_Panel_SingleFrameBufInit(); LL_LED_Panel_SingleFrameBufSetNumber(ulBatteryLevel, LL_LED_Panel_GetColorIdxOfGREEN()); LL_LED_Panel_SingleFrameBufDisplay();
+
+T_LL_Thread__var thread_var__battery_indicator__main;
+//
+// step functions
+//
+static unsigned long battery_indicator_when_power_on(void) {
+    if(1 == gtPara.ulNeedCharge) { // if the last sleep is due to low-battery
+        LL_Thread__start(&thread_var__battery_indicator__sub, steps_red_alert, 4);
+    } else { // else, no need charge now
+        unsigned long battery_level = LL_Battery_Level(); if(LL_BATTERY_LEVEL_NONE == battery_level) return LL_Thread__step_RETURN__NotDone; // keep waiting if battery not measured yet
+        if(LL_VALUE_OF_BATT_LVL_ALERT < battery_level) { 
+            LL_Thread__start(&thread_var__battery_indicator__sub, steps_green_flash, 0);
+        } else if(LL_VALUE_OF_BATT_LVL_OFF < battery_level) { 
+            LL_Thread__start(&thread_var__battery_indicator__sub, steps_red_flash, 0);
+        } else {
+            gtPara.ulNeedCharge = 1; gulFlashStoreNeeded = 1; // !!!!!!
+            LL_Thread__start(&thread_var__battery_indicator__sub, steps_red_alert, 4);
+        }
+    }
+    // for all the "LL_Thread__start" above:
+    return LL_Thread__step_RETURN__Done;//_andThisThreadHasBeenRestartedOrUpdated;
+}
+static unsigned long battery_indicator_when_running(void) {
+    unsigned long battery_level = LL_Battery_Level(); if(LL_BATTERY_LEVEL_NONE == battery_level) return LL_Thread__step_RETURN__NotDone; // keep waiting if battery not measured yet
+    if(1 < battery_level) { 
+        return LL_Thread__step_RETURN__NotDone; // keep monitoring
     } else {
-        //LL_LED_Panel_SetAnimation(LL_LED_PANEL_ANIMATION_GREEN_BATTERY, E_LL_ANIMATION__RE_TRIGGER_TYPE__NOT_IF_SAME);
-    }                    
-}
-
-
-unsigned long LL_BatteryIndicator_PowerOnIsFinished(void) {
-    if(E_STEP__BATTERY_INDICATOR__RUNTIME__CHK_BATT == step) { return 1; } else { return 0; }
-}
-
-static unsigned long top_battery_level = 0xFFFFFFFF;
-void LL_BatteryIndicator__Mainloop(void) { // unsigned char global_brightness = gtPara.brightness[gtSysState.eModeOfWarningLight];
-    if(E_STEP__BATTERY_INDICATOR__OFF == step) return;
-    
-//    unsigned long battery_sample = LL_Battery_Sample(); if(LL_ADC_SAMPLE_VALUE_NONE == battery_sample) { return; } // not ready yet
-    unsigned long battery_level  = LL_Battery_Level();  if(LL_ADC_SAMPLE_VALUE_NONE == battery_level)  { return; } // not ready yet
-    if(0xFFFFFFFF == top_battery_level) { top_battery_level = battery_level; if(100 < top_battery_level) { top_battery_level = 100; } }
-    
-    switch(step) {
-        case E_STEP__BATTERY_INDICATOR__OFF:
-            break;
-        case E_STEP__BATTERY_INDICATOR__PWR_ON__CHK_BATT:
-            if(1 == gtPara.ulNeedCharge) { // has been low-battery and not charge yet
-                LL_GPIO_OutputWrite(0, LL_PIN_LED_POWER_ENABLE, LL_PIN_N__LED_POWER_ENABLE);
-                step = E_STEP__BATTERY_INDICATOR__PWR_ON__ALERT_BATT; delay_cnt = gulTimerCnt1ms--; rep_cnt = 0;
-            } else if( 53 < battery_level ) { 
-                step = E_STEP__BATTERY_INDICATOR__PWR_ON__START_UP; delay_cnt = gulTimerCnt1ms; rep_cnt = 0;
-            } else if( 5 < battery_level ) { 
-                step = E_STEP__BATTERY_INDICATOR__PWR_ON__START_UP; delay_cnt = gulTimerCnt1ms; rep_cnt = 0;
-            } else { gtPara.ulNeedCharge = 1; gulFlashStoreNeeded = 1;  // low-battery, need charge
-                LL_GPIO_OutputWrite(0, LL_PIN_LED_POWER_ENABLE, LL_PIN_N__LED_POWER_ENABLE);
-                step = E_STEP__BATTERY_INDICATOR__PWR_ON__ALERT_BATT; delay_cnt = gulTimerCnt1ms--; rep_cnt = 0;
-            }
-            break;
-        case E_STEP__BATTERY_INDICATOR__PWR_ON__START_UP:
-            if( 50*45 < LL_Timer_Elapsed_ms(delay_cnt) ) { delay_cnt = gulTimerCnt1ms;
-                step = E_STEP__BATTERY_INDICATOR__PWR_ON__FLASH_BATT; delay_cnt = gulTimerCnt1ms--; rep_cnt = 0;
-            }
-            break;
-        case E_STEP__BATTERY_INDICATOR__PWR_ON__FLASH_BATT:
-            if( 140 < LL_Timer_Elapsed_ms(delay_cnt) ) { delay_cnt = gulTimerCnt1ms;
-                //LL_LED_Panel_SetBrightness(LL_LED_Panel_BRIGHTNESS_OF_BATTERY_INDICATOR);
-                if(0 == (rep_cnt%2)) {
-                    //LL_BatteryIndicator__ShowInPanel(top_battery_level);//LL_LED_Panel_SingleFrameBufSetNumber(top_battery_level, LL_LED_Panel_GetColorIdxOfRED()); 
-                } else { 
-                    //LL_LED_Panel_SetAnimation(LL_LED_PANEL_ANIMATION_OFF, E_LL_ANIMATION__RE_TRIGGER_TYPE__NOT_IF_SAME);
-                }
-                rep_cnt++; if(6 <= rep_cnt) { 
-                //LL_LED_Panel_SetBrightness(gtPara.brightness[gtSysState.eModeOfWarningLight]);//(100); // resume to 100%
-                step = E_STEP__BATTERY_INDICATOR__RUNTIME__CHK_BATT; delay_cnt = gulTimerCnt1ms--; rep_cnt = 0; }
-            }
-            break;
-        case E_STEP__BATTERY_INDICATOR__RUNTIME__CHK_BATT: // check battery
-            if((LL_BATTERY_LEVEL_NONE != battery_level)
-            && (                    1 >= battery_level) ) { 
-                gtPara.ulNeedCharge = 1; gulFlashStoreNeeded = 1;
-                step = E_STEP__BATTERY_INDICATOR__RUNTIME__ALERT_BATT; delay_cnt = gulTimerCnt1ms--; rep_cnt = 0;  
-                // off the timeslot to make beep stable:
-                sd_radio_session_close();
-                // switch off other routine of LED/buzzer:
-                LL_BeepForTurning__OFF();        // LL_Helmet_BeepWhenTurning()
-                gtSysState.eBrakeState = BRAKE_OFF;     // LL_Helmet_TurnOffBrakeLightAuto()
-                gtSysState.eTurnState = TURNING_NONE;   // LL_Helmet_TurnOffTurningLightAuto()
-            }
-            break;
-        case E_STEP__BATTERY_INDICATOR__PWR_ON__ALERT_BATT:
-        case E_STEP__BATTERY_INDICATOR__RUNTIME__ALERT_BATT:
-            
-            if( 140 < LL_Timer_Elapsed_ms(delay_cnt) ) { delay_cnt = gulTimerCnt1ms;
-                if(0 == (rep_cnt%2)) {
-                    LL_PWM_ON(E_LL_PWM_BUZZER);
-                    //LL_LED_Panel_SetAnimation(LL_LED_PANEL_ANIMATION_OFF, E_LL_ANIMATION__RE_TRIGGER_TYPE__NOT_IF_SAME);
-                } else { 
-                    LL_PWM_OFF(E_LL_PWM_BUZZER);
-                    //LL_LED_Panel_SingleFrameBufInit(); LL_LED_Panel_SingleFrameBufSetNumber(0, LL_LED_Panel_GetColorIdxOfRED()); LL_LED_Panel_SingleFrameBufDisplay();
-                }
-                rep_cnt++; if(10 <= rep_cnt) { 
-                    LL_PWM_OFF(E_LL_PWM_BUZZER);
-                    step = E_STEP__BATTERY_INDICATOR__OFF; LL_Helmet_ChangeStateTo_OFF(); }
-            }
-            break;
+        gtPara.ulNeedCharge = 1; gulFlashStoreNeeded = 1; 
+        { // some deinit at first
+            // off the timeslot to make beep stable:
+            sd_radio_session_close();
+            // switch off other routine of LED/buzzer:
+            LL_BeepForTurning__OFF();        // LL_Helmet_BeepWhenTurning()
+            gtSysState.eBrakeState = BRAKE_OFF;     // LL_Helmet_TurnOffBrakeLightAuto()
+            gtSysState.eTurnState = TURNING_NONE;   // LL_Helmet_TurnOffTurningLightAuto()                        
+        }
+        LL_Thread__start(&thread_var__battery_indicator__sub, steps_all_alert, 4);
+        return LL_Thread__step_RETURN__Done;//_andThisThreadHasBeenRestartedOrUpdated;
     }
 }
+static unsigned long battery_indicator_wait_for_the_sub_done(void) {
+    if(LL_Thread__is_stopped((&thread_var__battery_indicator__sub))) {
+        return LL_Thread__step_RETURN__Done;
+    } else {
+        return LL_Thread__step_RETURN__NotDone;        
+    }
+}
+//
+// threads
+const LL_Thread__step_func steps_battery_indicator_when_power_on[] = {
+    battery_indicator_when_power_on,
+    battery_indicator_wait_for_the_sub_done,
+    LL_Thread__step__END_OR_LOOP_THIS_THREAD
+};
+const LL_Thread__step_func steps_battery_indicator_when_running[] = {
+    battery_indicator_when_running,
+    battery_indicator_wait_for_the_sub_done,
+    LL_Thread__step__END_OR_LOOP_THIS_THREAD
+};
+
 
 
