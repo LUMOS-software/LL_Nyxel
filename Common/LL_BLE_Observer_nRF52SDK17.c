@@ -53,10 +53,20 @@ bool wake_up_event__key_pressed          = false;
 
 NRF_BLE_SCAN_DEF(m_scan); /**< Scanning module instance. */
 
-static ble_gap_scan_params_t m_scan_param = { /**< Scan parameters requested for scanning and connection. */
+static ble_gap_scan_params_t m_normal_mode_scan_param = { /**< Scan parameters requested for scanning and connection. */
     .active        = 0x01,
     .interval      = 0x00D0,    // 0x00A0/0x00B0/0x00D0: 100ms/110ms/130ms, 130ms scanning can "meet" the 100ms adv earlier than 100ms scanning
     .window        = 0x003C,
+    .filter_policy = BLE_GAP_SCAN_FP_ACCEPT_ALL,
+    .timeout       = 0, // Duration of a scanning session in units of 10 ms. Range: 0x0001 - 0xFFFF (10 ms to 10.9225 ms). If set to 0x0000, the scanning continues until it is explicitly disabled. 
+    .scan_phys     = BLE_GAP_PHY_1MBPS,
+    .extended      = true,
+};
+
+static ble_gap_scan_params_t m_low_power_mode_scan_param = { /**< Scan parameters requested for scanning and connection. */
+    .active        = 0x01,
+		.interval    	 = 0x0A00,  // A00 means 1600ms // Determines scan interval in units of 0.625 millisecond.
+		.window      	 = 0x00A0,  // A0 means 100ms,
     .filter_policy = BLE_GAP_SCAN_FP_ACCEPT_ALL,
     .timeout       = 0, // Duration of a scanning session in units of 10 ms. Range: 0x0001 - 0xFFFF (10 ms to 10.9225 ms). If set to 0x0000, the scanning continues until it is explicitly disabled. 
     .scan_phys     = BLE_GAP_PHY_1MBPS,
@@ -227,7 +237,7 @@ void LL_BLE_Observer__Init(void) { // acc to scan_init and scan_start of SDK17 s
     { // scan_init
         nrf_ble_scan_init_t init_scan; {
             memset(&init_scan, 0, sizeof(init_scan));
-            init_scan.p_scan_param = &m_scan_param;
+            init_scan.p_scan_param = &m_normal_mode_scan_param;
         }
         err_code = nrf_ble_scan_init(&m_scan, &init_scan, scan_evt_handler); APP_ERROR_CHECK(err_code);
         err_code = nrf_ble_scan_filter_set(&m_scan, SCAN_NAME_FILTER, "LMM"); APP_ERROR_CHECK(err_code);
@@ -248,4 +258,14 @@ void LL_BLE_Observer__Stop(void)
 void LL_BLE_Observer(void) {
 }
 
-
+void LL_BLE_Observer__Modify_Param(E_SCAN_PARAM_TYPE param)
+{
+		uint32_t err_code;
+		nrf_ble_scan_stop();
+		if(param == TYPE_NORMAL){
+			err_code = sd_ble_gap_scan_start(&m_normal_mode_scan_param, &m_scan.scan_buffer);
+		}else{
+			err_code = sd_ble_gap_scan_start(&m_low_power_mode_scan_param, &m_scan.scan_buffer);
+		}			
+		APP_ERROR_CHECK(err_code);	
+}

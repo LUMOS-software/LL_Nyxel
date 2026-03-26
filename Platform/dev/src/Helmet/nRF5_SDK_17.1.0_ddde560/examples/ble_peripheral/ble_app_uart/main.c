@@ -92,8 +92,8 @@ void LL_BLE_Adv_init(ble_advertising_init_t const * const p_init) {
 void LL_BLE_Adv_start(void) {
     uint32_t err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST); APP_ERROR_CHECK(err_code);
 }
-void LL_BLE_Adv_stop(void) {
-    sd_ble_gap_adv_stop(m_advertising.adv_handle);
+uint32_t LL_BLE_Adv_stop(void) {
+    return sd_ble_gap_adv_stop(m_advertising.adv_handle);
 }
 #endif
 bool glBleConnected = false;
@@ -808,6 +808,83 @@ void LL_Power_BeforeSleep(void)
     LL_PWM_Sleep();LL_Key_Init();
 }
 
+void LL_Power_BeforeLowPowerMode(void)
+{
+		if(gulFlashStoreNeeded == 1 || gulFlashStoreNeeded == 2){ //If you have data to store before sleep
+        if(LL_Flash_store_finish()){
+            LL_Flash_store_beforeSleep();
+        }
+    }
+		
+		{ // app timer: save 0.13mA
+				app_timer_stop(m_1ms_timer_id);
+		}		
+		{ // can save some but should not stop the adv
+				uint32_t err_code = LL_BLE_Adv_stop(); 
+				//If the error code is 0x08 (INVALID_STATE), it indicates that it was never turned on in the first place. Just ignore it directly.
+				if (err_code != NRF_SUCCESS && err_code != NRF_ERROR_INVALID_STATE) {
+						APP_ERROR_CHECK(err_code);
+				}
+				
+				LL_BLE_Observer__Modify_Param(TYPE_LOW_POWER_MODE);
+		}		
+		
+		{//charging
+			LL_GPIO_OutputWrite(0, LL_PIN_CHARGING_POWER, LL_PIN_N__CHARGING_POWER);
+		}
+		
+		{//led 
+			LL_GPIO_OutputWrite(0, LL_PIN_LED_POWER_ENABLE, LL_PIN_N__LED_POWER_ENABLE); 
+			LL_LEDs_OFF();
+			LL_PWM_Sleep();
+		}
+		
+		{//board detect
+			LL_GPIO_InputCfg(0, LL_PIN__ADAPTER_BOARD_DETECT, LL_GPIO_PULL_NONE, LL_GPIO_TRIGGER_NONE);
+		}			
+	
+		{ // ADC  save about 0.41mA
+			LL_GPIO_OutputWrite(0, LL_PIN__BATT_LVL, LL_PIN_N__BATT_LVL); // turn off the ADC cierr_codeuit.//LL_GPIO_OutputWrite(0, LL_PIN_BATT_LVL, LL_NORMAL_BATT_LVL); // turn off the ADC cierr_codeuit.
+			LL_ADC_Stop();
+		}
+		
+		//wait flash write success 
+    if(!LL_Flash_store_finish()){
+        for(uint16_t i=0; i<LL_FLASH_WAITING_TIME_BEFORE_SLEEP; i++){
+            if(LL_Flash_store_finish()){break;}
+            nrf_delay_ms(1);
+        }
+    }
+}
+void LL_Power_BeforeWakeup(void) {
+		{ // as Scanner / Central
+			LL_BLE_Observer__Modify_Param(TYPE_NORMAL);
+		}
+		
+		{//charging
+			LL_GPIO_OutputWrite(0, LL_PIN_CHARGING_POWER, LL_PIN_Y__CHARGING_POWER);
+		}
+		
+		{//led
+			LL_GPIO_OutputWrite(0, LL_PIN_LED_POWER_ENABLE, LL_PIN_Y__LED_POWER_ENABLE); 
+			LL_PWM_Init(LL_HW_PWM_PERIOD);
+			LL_LEDs_init();
+		}
+		
+		{//board detect
+			LL_GPIO_InputCfg(0, LL_PIN__ADAPTER_BOARD_DETECT, LL_PULL__ADAPTER_BOARD_DETECT, LL_GPIO_TRIGGER_NONE);
+    }
+		
+		{//battery
+			LL_GPIO_OutputWrite(0, LL_PIN__BATT_LVL, LL_PIN_Y__BATT_LVL);
+			LL_ADC_Init(TYPE_START);
+		}
+    
+		{//app timer
+			app_timer_start(m_1ms_timer_id,33,NULL);
+		}
+}
+
 #if 0
 /**@brief Function for initializing the nrf log module.
  */
@@ -831,6 +908,15 @@ static void idle_state_handle(void)
     }
 }
 #endif
+
+/**@brief Function for initializing power management.
+ */
+static void power_management_init(void)
+{
+    ret_code_t err_code;
+    err_code = nrf_pwr_mgmt_init();
+    APP_ERROR_CHECK(err_code);
+}
 
 /**@brief Function for starting advertising.
  */
@@ -874,7 +960,7 @@ int main(void)
 				ble_stack_init();
 				LL_BLE_Observer__Init();
 				buttons_leds_init(&erase_bonds);
-				//power_management_init();
+				power_management_init();
 				
 				gap_params_init();
 				gatt_init();

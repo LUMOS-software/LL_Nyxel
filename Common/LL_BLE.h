@@ -15,7 +15,7 @@
 
 void LL_BLE_Adv_init(ble_advertising_init_t const * const p_init);
 void LL_BLE_Adv_start(void);
-void LL_BLE_Adv_stop(void);
+uint32_t LL_BLE_Adv_stop(void);
 
 
 #endif

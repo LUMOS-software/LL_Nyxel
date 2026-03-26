@@ -30,7 +30,6 @@ extern void battery_level_update(void);
 extern void advertising_start(void);
        unsigned long sgulGeneralStep;
 static unsigned long sgulGeneralCnt;
-static unsigned long sgulBeepCnt;
 //static unsigned long sgulFrontLightFadeCnt;
 
 extern unsigned long gulFlashStoreNeeded;////LL_Flash_store(); 
@@ -568,27 +567,11 @@ static inline void LL_Helmet_State_OFF(void)
             break;
         case  6:
             if( 1 == LL_GPIO_InputRead(gatKeyCfg[LL_KEY_NUM_ONOFF].port, gatKeyCfg[LL_KEY_NUM_ONOFF].pin) ) { 
-//                LL_Power_BeforeSleep(); 
+                LL_Power_BeforeLowPowerMode();
+
                 { //LL_Power_Sleep();
-                    { // can save some but should not stop the adv
-                        void LL_BLE_Adv_stop(void);
-                        LL_BLE_Adv_stop();//uint32_t err_code = sd_ble_gap_adv_stop(); APP_ERROR_CHECK(err_code);
-                        //(void) sd_ble_gap_scan_stop();
-                    }
-////                            { // save about 10mA
-////                                timeslot_sd_stop(); 
-////                            }
-//                    { // app timer: save 0.13mA
-//                        uint32_t app_timer_stop_all(void);
-//                        app_timer_stop_all();
-//                    }
-//                    { // ADC  save about 0.41mA
-//                      void LL_ADC_Stop(void);
-//                      LL_ADC_Stop();
-//                    }
                     while(1) {
-                        //
-                        sd_app_evt_wait(); // save about 3mA (from 13mA to 10mA)
+												nrf_pwr_mgmt_run();
                         //
                         if( gatKeyCfg[LL_KEY_NUM_ONOFF].normal != LL_GPIO_InputRead(gatKeyCfg[LL_KEY_NUM_ONOFF].port, gatKeyCfg[LL_KEY_NUM_ONOFF].pin) ) { // if key is pressed probably
                             wake_up_event__key_pressed = true;
@@ -601,13 +584,13 @@ static inline void LL_Helmet_State_OFF(void)
                         }
                     }
                     if(wake_up_event__key_pressed) { wake_up_event__key_pressed = false;
-                        //LL_Power_BeforeWakeup(); 
+                        LL_Power_BeforeWakeup(); 
                         gtSysState.eTurnState = TURNING_NONE; 
 
                         LL_Helmet_ChangeStateTo_Init(); // just like wake up from SYSTEM OFF
                     }
                     if(wake_up_event__power_on_cmd_scanned) { wake_up_event__power_on_cmd_scanned = false;
-                        //LL_Power_BeforeWakeup(); 
+                        LL_Power_BeforeWakeup(); 
                         gtSysState.eTurnState = TURNING_NONE; 
                         LL_Helmet_ChangeStateTo_BeepBeforeON();
                     }

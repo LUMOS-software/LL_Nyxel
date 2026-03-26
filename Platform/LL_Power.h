@@ -24,7 +24,8 @@ void LL_Power_Init(void);
 @retval     none
 *******************************************************************************/
 void LL_Power_BeforeSleep(void);
-//void LL_Power_BeforeWakeup(void);
+void LL_Power_BeforeLowPowerMode(void);
+void LL_Power_BeforeWakeup(void);
 
 /*******************************************************************************
 @brief      Pls call it when sleep directly.

@@ -40,6 +40,6 @@ void LL_ADC_Init(E_ADC_TYPE type);
 *******************************************************************************/
 void LL_ADC_StartSingleConversion(void);//(unsigned long ulCH);
 
-
+void LL_ADC_Stop(void);
 
 #endif

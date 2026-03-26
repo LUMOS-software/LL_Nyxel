@@ -93,6 +93,13 @@ void LL_ADC_Init(E_ADC_TYPE type)
     err_code = nrf_drv_saadc_buffer_convert(m_buffer_pool[1],SAMPLES_IN_BUFFER); APP_ERROR_CHECK(err_code);
 }
 
+void LL_ADC_Stop(void)
+{
+    NRF_SAADC->ENABLE = (SAADC_ENABLE_ENABLE_Disabled << SAADC_ENABLE_ENABLE_Pos); // __STATIC_INLINE void nrf_saadc_disable(void)
+    NRF_SAADC->TASKS_STOP = 1;
+    NRF_SAADC->EVENTS_END = 0;    
+}
+
 // No sample!
 void LL_ADC_StartSingleConversion(void)//(unsigned long ulCH)
 {
