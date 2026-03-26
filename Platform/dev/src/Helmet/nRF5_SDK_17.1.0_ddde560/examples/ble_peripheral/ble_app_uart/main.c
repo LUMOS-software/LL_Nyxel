@@ -818,6 +818,7 @@ void LL_Power_BeforeLowPowerMode(void)
 		
 		{ // app timer: save 0.13mA
 				app_timer_stop(m_1ms_timer_id);
+				//if stop all(app_timer_stop_all);,low power current:280uA ,unless 14uA
 		}		
 		{ // can save some but should not stop the adv
 				uint32_t err_code = LL_BLE_Adv_stop(); 
@@ -855,6 +856,9 @@ void LL_Power_BeforeLowPowerMode(void)
             nrf_delay_ms(1);
         }
     }
+		
+		//why not set trigger?? Avoiding the GPIOTE pitfall: If the GPIOTE interrupt of nRF52 is not handled properly (without clearing the flag bit or being latched), it can easily cause power consumption to rebound to 1mA or the program to freeze. By not adding a trigger, this complex logic is completely bypassed.
+		//LL_Key_Init();
 }
 void LL_Power_BeforeWakeup(void) {
 		{ // as Scanner / Central
