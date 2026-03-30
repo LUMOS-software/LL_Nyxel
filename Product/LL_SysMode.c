@@ -580,7 +580,7 @@ static inline void LL_Helmet_State_OFF(void)
                         //
                         if( wake_up_event__power_on_cmd_scanned
                         ||  wake_up_event__key_pressed          ) {
-                            LL_Key_Init_With_No_Trigger(); // to avoid Nordic's "GPIOTE Latch" bug
+														LL_Key_Init_With_No_Trigger(); 
                             break;
                         }
                     }

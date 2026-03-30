@@ -6,7 +6,7 @@
 #include "LL_Timer.h"
 #include "LL_GPIO.h"
 #include "LL_Key.h"
-
+#include "LL_Platform.h"
 
 
 T_LL_KEY_CFG gatKeyCfg[LL_KEY_NUM_MAX] = LL_KEY_CFG;
@@ -15,8 +15,13 @@ static unsigned long sgaulState[         LL_KEY_NUM_MAX ];   // every key has a 
 static unsigned long sgaulIgnoreRelease[ LL_KEY_NUM_MAX ];   // whether ignore the next release after a meaningful long press.
 static T_LL_KEY_EVT sgtEvt = {0xFFFFFFFF, 0};
 
-void LL_Key_Init(void) //(unsigned long N)
+void ll_key_pin_handler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 {
+    // nothing need to do
+}
+
+void LL_Key_Init(void) //(unsigned long N)
+{	
     for( unsigned long N = 0; N < LL_KEY_NUM_MAX; N++ ) {
         LL_GPIO_InputCfg(gatKeyCfg[N].port, gatKeyCfg[N].pin, gatKeyCfg[N].pull, gatKeyCfg[N].trigger);
         sgaulDbnCnt[N] = gulTimerCnt1ms;   
@@ -30,6 +35,22 @@ void LL_Key_Init_With_No_Trigger(void) //(unsigned long N)
         LL_GPIO_InputCfg(gatKeyCfg[N].port, gatKeyCfg[N].pin, gatKeyCfg[N].pull,LL_GPIO_TRIGGER_NONE );
     }
 }
+
+void LL_Key_Init_With_Handler(void)
+{
+		if (!nrf_drv_gpiote_is_init()) {
+        nrf_drv_gpiote_init();
+    }
+	  nrf_drv_gpiote_in_config_t config = GPIOTE_CONFIG_IN_SENSE_HITOLO(false); 
+		NRF_P0->LATCH = (1 << gatKeyCfg[LL_KEY_NUM_ONOFF].pin); // clear LATCH
+		
+    config.pull = gatKeyCfg[LL_KEY_NUM_ONOFF].pull; 
+    
+    nrf_drv_gpiote_in_init(gatKeyCfg[LL_KEY_NUM_ONOFF].pin, &config, ll_key_pin_handler);
+    nrf_drv_gpiote_in_event_enable(gatKeyCfg[LL_KEY_NUM_ONOFF].pin, true);
+}
+
+
 static unsigned long sgulOneKeyPerScan = 0xFFFFFFFF;
 void LL_Key_Scan(void) //(unsigned long N)
 {    
