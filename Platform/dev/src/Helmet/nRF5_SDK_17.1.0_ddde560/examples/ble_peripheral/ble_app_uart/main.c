@@ -1016,9 +1016,8 @@ int main(void)
 						 LL_Helmet_ChangeStateTo_PcbTestingMode();
 			}else if(LL_Battery__isCharging()) { // if charging
 					// unfreeze the power-off-if-low-battery.
-					void LL_Charging_Display(void);
-					LL_Charging_Display();
-					//#include "LL_Charging_Display.h"    
+					gulCharging = 1;
+					LL_Battery_Charging_Animation_Init();  
 			}else if( ( gatKeyCfg[LL_KEY_NUM_ONOFF  ].normal != LL_GPIO_InputRead(gatKeyCfg[LL_KEY_NUM_ONOFF  ].port, gatKeyCfg[LL_KEY_NUM_ONOFF  ].pin) ) ) { // if key pressed
 					LL_Key_Init_With_No_Trigger();
 					//continue 

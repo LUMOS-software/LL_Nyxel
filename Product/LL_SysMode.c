@@ -93,38 +93,39 @@ void LL_Helmet_ChangeStateTo_Init()
 static inline void LL_Helmet_State_Init(void)
 {
     T_LL_KEY_EVT tKeyEvt;
-    switch(sgulGeneralStep) {
-        case  0:
-            // if ON/OFF key pressed: check whether a short or long press.
-            if( LL_Key_EvtFetch(&tKeyEvt) && (LL_KEY_NUM_ONOFF == tKeyEvt.N) && (1 == tKeyEvt.evt) ) {
-                sgulGeneralCnt = gulTimerCnt1ms;
-                sgulGeneralStep++; 
-            }
-            if(2000 < LL_Timer_Elapsed_ms(sgulGeneralCnt) ) { //Prevent the wrong touch of the key to enter this stage and cannot go out
-                LL_Power_BeforeSleep(); 
-                LL_Power_Sleep();                 
-            }            
-            break;    
-        case  1:
-            // if ON/OFF key released: ON!
-            if( LL_Key_EvtFetch(&tKeyEvt) && (LL_KEY_NUM_ONOFF == tKeyEvt.N) && (0 == tKeyEvt.evt) ) {
-                sgulEnterPairingModeIfLongPress = 0;
-                LL_Helmet_ChangeStateTo_BeepBeforeON(); 
-            } else {
-                // if long pressed: enter normal mode, and continue checking whether it's a longer press for pairing-mode.
-                if(500 < LL_Timer_Elapsed_ms(sgulGeneralCnt) ) { //LL_Key_IgnoreNextRelease(LL_KEY_NUM_ONOFF); 
-                    sgulEnterPairingModeIfLongPress = 1;
-                    LL_Helmet_ChangeStateTo_BeepBeforeON(); 
-                }
-            }
-            break;    
-    }
-    
-    #ifdef LL_BatteryIndicator__ShowWhenHelmetNotOn
-//        if(1 != LL_Helmet_RedGreenFlashWhenTestMode_isON()) {
-            LL_Battery_Charging_Indicator();
-//        }    
-    #endif    
+		if(!gulCharging){
+				switch(sgulGeneralStep) {
+						case  0:
+								// if ON/OFF key pressed: check whether a short or long press.
+								if( LL_Key_EvtFetch(&tKeyEvt) && (LL_KEY_NUM_ONOFF == tKeyEvt.N) && (1 == tKeyEvt.evt) ) {
+										sgulGeneralCnt = gulTimerCnt1ms;
+										sgulGeneralStep++; 
+								}
+								if(2000 < LL_Timer_Elapsed_ms(sgulGeneralCnt) ) { //Prevent the wrong touch of the key to enter this stage and cannot go out
+										LL_Power_BeforeSleep(); 
+										LL_Power_Sleep();                 
+								}            
+								break;    
+						case  1:
+								// if ON/OFF key released: ON!
+								if( LL_Key_EvtFetch(&tKeyEvt) && (LL_KEY_NUM_ONOFF == tKeyEvt.N) && (0 == tKeyEvt.evt) ) {
+										sgulEnterPairingModeIfLongPress = 0;
+										LL_Helmet_ChangeStateTo_BeepBeforeON(); 
+								} else {
+										// if long pressed: enter normal mode, and continue checking whether it's a longer press for pairing-mode.
+										if(500 < LL_Timer_Elapsed_ms(sgulGeneralCnt) ) { //LL_Key_IgnoreNextRelease(LL_KEY_NUM_ONOFF); 
+												sgulEnterPairingModeIfLongPress = 1;
+												LL_Helmet_ChangeStateTo_BeepBeforeON(); 
+										}
+								}
+								break;    
+				}
+		}else{
+			#ifdef LL_BatteryIndicator__ShowWhenHelmetNotOn
+							LL_Battery_Charging_Animation_Loop();
+		
+			#endif    
+		}
 }
 
 
@@ -587,7 +588,7 @@ static inline void LL_Helmet_State_OFF(void)
                         LL_Power_BeforeWakeup(); 
                         gtSysState.eTurnState = TURNING_NONE; 
 
-                        LL_Helmet_ChangeStateTo_Init(); // just like wake up from SYSTEM OFF
+                        LL_Helmet_ChangeStateTo_BeepBeforeON();  // just like wake up from SYSTEM OFF
                     }
                     if(wake_up_event__power_on_cmd_scanned) { wake_up_event__power_on_cmd_scanned = false;
                         LL_Power_BeforeWakeup(); 

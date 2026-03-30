@@ -89,6 +89,7 @@ static void scan_evt_handler(scan_evt_t const * p_scan_evt) { // will called by 
                             uint8_t *p_field_data  = &(p_adv_data[index+2 ]);
 //                          uint8_t field_data_len = field_length - 1; // 1: 1 byte for "field_type"
                             {
+															  if(gulCharging == 1)break;
                                 if(field_type == BLE_GAP_AD_TYPE_COMPLETE_LOCAL_NAME) {
                                     if('L' != p_field_data[0]) break;
                                     if('M' != p_field_data[1]) break;

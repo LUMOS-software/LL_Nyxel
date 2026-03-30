@@ -525,6 +525,7 @@ void LL_Drv_Ws2812_SetFrontAnimation(E_Ws2812_Animation_Type AnimationType)
             LL_Convert_Frames_PowerOn(AnimationFrame_PowerOn_Level_4_Front, gtPanelPara.gulWs2812FrameFrontTotal, ConvertedFrontFrames, E_LL_LED_FRONT, glPowerOnDisplayNum);        
             selectedAnimationFrontFrames = ConvertedFrontFrames;     
             break;      
+				case LED_ANIMATION_BLACK_SCREEN:		
         case LED_ANIMATION_POWEROFF:   
             gtPanelPara.gulWs2812FrameFrontTotal = LL_ANIMATION_FRAME_NUM;
             memset(gtPanelPara.animationFramesFront_flash, 0,sizeof(gtPanelPara.animationFramesFront_flash));
@@ -560,7 +561,7 @@ void LL_Drv_Ws2812_SetFrontAnimation(E_Ws2812_Animation_Type AnimationType)
             break; 
 				case LED_ANIMATION_PRODUCT_TESTING:
             LL_LED_Panel_Producting_Animation();        
-            return;						
+            return;	
         default:
             break;
     }
@@ -658,7 +659,6 @@ void LL_Drv_Ws2812_SetRearAnimation(E_Ws2812_Animation_Type AnimationType)
             LL_Convert_Frames(AnimationFrame_PairingMode_Rear, gtPanelPara.gulWs2812FrameRearTotal, ConvertedRearFrames);
             selectedAnimationRearFrames = ConvertedRearFrames;     
             break;  
-        
         case LED_ANIMATION_BRAKE_SIGNAL_SOLID:
             gtPanelPara.gulWs2812FrameRearTotal = sizeof(AnimationFrame_BrakeSignal_Rear_Solid) / sizeof(AnimationFrame_BrakeSignal_Rear_Solid[0]);   
             LL_Convert_Frames(AnimationFrame_BrakeSignal_Rear_Solid, gtPanelPara.gulWs2812FrameRearTotal, ConvertedRearFrames);
@@ -707,6 +707,10 @@ void LL_Drv_Ws2812_SetRearAnimation(E_Ws2812_Animation_Type AnimationType)
 				case LED_ANIMATION_PRODUCT_TESTING:
             LL_LED_Panel_Producting_Animation();        
             return;	
+				case LED_ANIMATION_BLACK_SCREEN:
+            gtPanelPara.gulWs2812FrameRearTotal = LL_ANIMATION_FRAME_NUM;
+            memset(gtPanelPara.animationFramesRear_flash, 0,sizeof(gtPanelPara.animationFramesRear_flash));
+						break;
         default:
             break;
     }
