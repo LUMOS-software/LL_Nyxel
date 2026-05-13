@@ -864,6 +864,7 @@ void LL_Power_BeforeLowPowerMode(void)
 void LL_Power_BeforeWakeup(void) {
 		{ // as Scanner / Central
 			LL_BLE_Observer__Modify_Param(TYPE_NORMAL);
+			memset(&gtSysState_Tarran, 0, sizeof(T_SysState_Tarran));
 		}
 		
 		{//charging

@@ -186,20 +186,27 @@ static void scan_evt_handler(scan_evt_t const * p_scan_evt) { // will called by 
                                                 #define BRAKING_CMD_BRAKING   1                                                                                                
                                                 unsigned char turning_cmd = (p_field_data[10] & 0xF0) >> 4;
                                                 unsigned char braking_cmd = (p_field_data[10] & 0x0F) >> 0;
-                                                if(TURNING_CMD_NONE == turning_cmd) { // if Turning done
-                                                    gtSysState.eTurnState  = TURNING_NONE; 
-                                                    gtSysState.eBrakeState = (braking_cmd == 1) ? BRAKE_ON : BRAKE_OFF;
-                                                } else if(TURNING_CMD_L == turning_cmd) { // if Turning L
-                                                    gtSysState.eTurnState = TURNING_L;                    
-                                                    gtSysState.eBrakeState = BRAKE_OFF; // no need braking since turning is prior
-                                                } else if(TURNING_CMD_R == turning_cmd) { // if Turning R
-                                                    gtSysState.eTurnState = TURNING_R;                      
-                                                    gtSysState.eBrakeState = BRAKE_OFF; // no need braking since turning is prior
-                                                } else { // exception
-                                                    // just ignore
-                                                }
-                                                //
-                                                LL_HelmetActionWhenStateChanged();
+																								if(gtSysModeInitFlag == SYSMODE_INIT_OK){
+																									 if(gtSysState_Tarran.eTurnState != turning_cmd || gtSysState_Tarran.eBrakeState != braking_cmd){
+																												gtSysState_Tarran.eTurnState = turning_cmd;
+																												gtSysState_Tarran.eBrakeState = braking_cmd;
+																												if(TURNING_CMD_NONE == turning_cmd) { // if Turning done
+																														gtSysState.eTurnState  = TURNING_NONE; 
+																														gtSysState.eBrakeState = (braking_cmd == 1) ? BRAKE_ON : BRAKE_OFF;
+																												} else if(TURNING_CMD_L == turning_cmd) { // if Turning L
+																														gtSysState.eTurnState = TURNING_L;                    
+																														gtSysState.eBrakeState = BRAKE_OFF; // no need braking since turning is prior
+																												} else if(TURNING_CMD_R == turning_cmd) { // if Turning R
+																														gtSysState.eTurnState = TURNING_R;                      
+																														gtSysState.eBrakeState = BRAKE_OFF; // no need braking since turning is prior
+																												} else { // exception
+																														// just ignore
+																												}
+																												
+																													//
+																													LL_HelmetActionWhenStateChanged();
+																										}
+																								}
                                             }
                                             #endif
                                         } else if(0x5 == p_field_data[2]) { // 0x5: Sync Clock

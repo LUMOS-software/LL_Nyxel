@@ -36,10 +36,12 @@ extern unsigned long gulFlashStoreNeeded;////LL_Flash_store();
 unsigned long IsVibrationNeedRunTime;
 static unsigned long sgulXxxTestPowerOffStep = 0;
 static unsigned long sgulXxxTestPowerOffCnt = 0;
+T_SysState_Tarran gtSysState_Tarran;
 T_SysState gtSysState;
 T_SysState gtSysState_prev;
 T_PanelPara gtPanelPara;
 extern uint16_t m_conn_handle;
+uint8_t gtSysModeInitFlag = SYSMODE_INIT_START;
 
 #if 1 // Enter pairing-mode instead of power-off, if a Long-Press since power-on.
 static unsigned long sgulEnterPairingModeIfLongPress = 0;
@@ -331,6 +333,7 @@ void LL_Helmet_ChangeStateTo_ON(void)
 
     sgulGeneralStep = 0;
     sgulGeneralCnt = gulTimerCnt1ms;     
+		gtSysModeInitFlag = SYSMODE_INIT_OK;
 }
 void LL_Helmet_ChangeStateTo_NextMode(void)
 {
@@ -452,6 +455,7 @@ void LL_Helmet_ChangeStateTo_Pairing(void)
     
     sgulGeneralStep = 0;
     sgulGeneralCnt = gulTimerCnt1ms;    
+		gtSysModeInitFlag = SYSMODE_INIT_OK;
 }
 //static unsigned long sgulBreathingBrightness = 0;
 //static unsigned long sgulBreathingCnt = 0;
@@ -539,7 +543,7 @@ void LL_Helmet_ChangeStateTo_OFF(void)
     sgulGeneralStep = 0;
     sgulGeneralCnt = gulTimerCnt1ms; 
     gulFlashStoreNeeded = 1;//in order to store battery.
- 
+		gtSysModeInitFlag = SYSMODE_UNINIT;
 }
 static inline void LL_Helmet_State_OFF(void)
 {

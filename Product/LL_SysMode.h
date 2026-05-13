@@ -48,6 +48,13 @@ typedef enum
 
 typedef enum
 {
+    SYSMODE_INIT_START=0,
+    SYSMODE_INIT_OK,
+	  SYSMODE_UNINIT,
+}E_SYSMODE_INIT;
+
+typedef enum
+{
     BEEP_WHEN_TURNING_ONOFF = 0,
     BEEP_EVERY_1_TURNING_FLASH,
     BEEP_EVERY_4_TURNING_FLASH,
@@ -64,6 +71,12 @@ typedef struct
     E_BRAKE_STATE eBrakeState;
     unsigned long ulNoConnectionSinceSysOn; // for ESB, no need for BLE because there is only one BLE paired device. 
 }T_SysState;
+
+typedef struct
+{
+    uint8_t eTurnState;
+    uint8_t eBrakeState;
+}T_SysState_Tarran;
 
 typedef struct
 {
@@ -85,7 +98,9 @@ typedef struct {
 extern unsigned char glAdapterBoardConnState;
 extern T_SysState gtSysState;
 extern T_SysState gtSysState_prev;
+extern T_SysState_Tarran gtSysState_Tarran;
 extern T_PanelPara gtPanelPara;
+extern uint8_t gtSysModeInitFlag;
 
 void LL_Helmet_ChangeStateTo_Init(void);
 void LL_Helmet_ChangeStateTo_PcbTestingMode(void);

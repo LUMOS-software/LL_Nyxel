@@ -41,52 +41,54 @@ void LL_HelmetActionWhenStateChanged(void) {
          //LL_BLE_Broadcaster__start(thread__LL_BLE_Broadcaster__Normal_Mode_TurningBraking);
      }     
     // LED panel
-    if(TURNING_L == gtSysState.eTurnState) {
-        //turn left
-        LL_Drv_Ws2812_SetFrontAnimation(LED_ANIMATION_TURNLEFT_SIGNAL);
-        LL_Drv_Ws2812_SetRearAnimation(LED_ANIMATION_TURNLEFT_SIGNAL);  
+		if(SYS_PAIRING == gtSysState.eOnOFF) { // pairing mode
+			//
+		}else{
+				if(TURNING_L == gtSysState.eTurnState) {
+						//turn left
+						LL_Drv_Ws2812_SetFrontAnimation(LED_ANIMATION_TURNLEFT_SIGNAL);
+						LL_Drv_Ws2812_SetRearAnimation(LED_ANIMATION_TURNLEFT_SIGNAL); 
+						//LL_Drv_Ws2812_SetRearAnimation(LED_ANIMATION_TURNLEFT_FLASH_SIGNAL); 
+						//LL_Drv_Ws2812_SetFrontAnimation(LED_ANIMATION_TURNLEFT_FLASH_SIGNAL);   		
+				} else if(TURNING_R == gtSysState.eTurnState) {
+						//turn right
+						LL_Drv_Ws2812_SetFrontAnimation(LED_ANIMATION_TURNRIGHT_SIGNAL);
+						LL_Drv_Ws2812_SetRearAnimation(LED_ANIMATION_TURNRIGHT_SIGNAL); 
 
-        //LL_Drv_Ws2812_SetRearAnimation(LED_ANIMATION_TURNLEFT_FLASH_SIGNAL); 
-        //LL_Drv_Ws2812_SetFrontAnimation(LED_ANIMATION_TURNLEFT_FLASH_SIGNAL);            
-    } else if(TURNING_R == gtSysState.eTurnState) {
-        //turn right
-        LL_Drv_Ws2812_SetFrontAnimation(LED_ANIMATION_TURNRIGHT_SIGNAL);
-        LL_Drv_Ws2812_SetRearAnimation(LED_ANIMATION_TURNRIGHT_SIGNAL); 
-
-        //LL_Drv_Ws2812_SetRearAnimation(LED_ANIMATION_TURNRIGHT_FLASH_SIGNAL); 
-        //LL_Drv_Ws2812_SetFrontAnimation(LED_ANIMATION_TURNRIGHT_FLASH_SIGNAL);        
-    } else if((BRAKE_ON == gtSysState.eBrakeState) && (1 == gtPara.ulBrakeFunction)) {
-        unsigned long flashing_pattern = LL_Para__get_flashing_pattern(gtPara.eModeOfWarningLight, E_LL_LED_REAR);
-        if(0x00FFFFFF == flashing_pattern) { // if solid
-            LL_Drv_Ws2812_SetFrontAnimation(LED_ANIMATION_BRAKE_SIGNAL_SOLID);
-            LL_Drv_Ws2812_SetRearAnimation(LED_ANIMATION_BRAKE_SIGNAL_SHARPFLASH);  
-        }else{
-            LL_Drv_Ws2812_SetFrontAnimation(LED_ANIMATION_BRAKE_SIGNAL_SOLID);
-            LL_Drv_Ws2812_SetRearAnimation(LED_ANIMATION_BRAKE_SIGNAL_SOLID);  
-        }            
-        //brake
-        LL_Helmet_TurnOffBrakeLightAuto_ReclockWhenReceiveNewBrake();
-    } else {
-        //gtSysState.eModeOfWarningLight means the 'Now for the number of modes'. gtPara.ePatternOfFrontLight[x] means 'The pattern number stored in the x pattern'
-            switch(gtSysState.eModeOfWarningLight) {            
-                case E_MODE_OF_WARNING_LIGHT__Mode1:  
-                    LL_Drv_Ws2812_SetFrontAnimation(gtPara.ePatternOfFrontLight[0]);
-                    LL_Drv_Ws2812_SetRearAnimation(gtPara.ePatternOfRearLight[0]); 
-                    break;
-                case E_MODE_OF_WARNING_LIGHT__Mode2:
-                    LL_Drv_Ws2812_SetFrontAnimation(gtPara.ePatternOfFrontLight[1]);
-                    LL_Drv_Ws2812_SetRearAnimation(gtPara.ePatternOfRearLight[1]); 
-                    break;
-                case E_MODE_OF_WARNING_LIGHT__Mode3:
-                    LL_Drv_Ws2812_SetFrontAnimation(gtPara.ePatternOfFrontLight[2]);
-                    LL_Drv_Ws2812_SetRearAnimation(gtPara.ePatternOfRearLight[2]);    
-                    break;
-                default: // should not happen
-                    //LL_LED_Panel_SetAnimation(LL_LED_PANEL_ANIMATION_Circles_RGB, E_LL_ANIMATION__RE_TRIGGER_TYPE__NOT_IF_SAME);        
-                    break;
-            }
-    }
-                       
+						//LL_Drv_Ws2812_SetRearAnimation(LED_ANIMATION_TURNRIGHT_FLASH_SIGNAL); 
+						//LL_Drv_Ws2812_SetFrontAnimation(LED_ANIMATION_TURNRIGHT_FLASH_SIGNAL);
+				} else if((BRAKE_ON == gtSysState.eBrakeState) && (1 == gtPara.ulBrakeFunction)) {
+						unsigned long flashing_pattern = LL_Para__get_flashing_pattern(gtPara.eModeOfWarningLight, E_LL_LED_REAR);
+						if(0x00FFFFFF == flashing_pattern) { // if solid
+								LL_Drv_Ws2812_SetFrontAnimation(LED_ANIMATION_BRAKE_SIGNAL_SOLID);
+								LL_Drv_Ws2812_SetRearAnimation(LED_ANIMATION_BRAKE_SIGNAL_SHARPFLASH);  
+						}else{
+								LL_Drv_Ws2812_SetFrontAnimation(LED_ANIMATION_BRAKE_SIGNAL_SOLID);
+								LL_Drv_Ws2812_SetRearAnimation(LED_ANIMATION_BRAKE_SIGNAL_SOLID);  
+						}            
+						//brake
+						LL_Helmet_TurnOffBrakeLightAuto_ReclockWhenReceiveNewBrake();
+				} else {
+						//gtSysState.eModeOfWarningLight means the 'Now for the number of modes'. gtPara.ePatternOfFrontLight[x] means 'The pattern number stored in the x pattern'
+								switch(gtSysState.eModeOfWarningLight) {            
+										case E_MODE_OF_WARNING_LIGHT__Mode1:  
+												LL_Drv_Ws2812_SetFrontAnimation(gtPara.ePatternOfFrontLight[0]);
+												LL_Drv_Ws2812_SetRearAnimation(gtPara.ePatternOfRearLight[0]); 
+												break;
+										case E_MODE_OF_WARNING_LIGHT__Mode2:
+												LL_Drv_Ws2812_SetFrontAnimation(gtPara.ePatternOfFrontLight[1]);
+												LL_Drv_Ws2812_SetRearAnimation(gtPara.ePatternOfRearLight[1]); 
+												break;
+										case E_MODE_OF_WARNING_LIGHT__Mode3:
+												LL_Drv_Ws2812_SetFrontAnimation(gtPara.ePatternOfFrontLight[2]);
+												LL_Drv_Ws2812_SetRearAnimation(gtPara.ePatternOfRearLight[2]);    
+												break;
+										default: // should not happen
+												//LL_LED_Panel_SetAnimation(LL_LED_PANEL_ANIMATION_Circles_RGB, E_LL_ANIMATION__RE_TRIGGER_TYPE__NOT_IF_SAME);        
+												break;
+								}
+				}
+		}                 
     // bak the new state
     memcpy(&gtSysState_prev, &gtSysState, sizeof(T_SysState));
 }
